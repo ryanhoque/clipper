@@ -193,7 +193,7 @@ InputParseResult<double> get_double_array(rapidjson::Value& d,
 }
 
 InputParseResult<float> get_float_array(rapidjson::Value& d, const char* key_name) {
-  latency_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
+  std::shared_ptr<clipper::metrics::Histogram> latency_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
       "internal:json_parse_latency", "microseconds", 100);
   long curtime_micros_start =
       std::chrono::duration_cast<std::chrono::microseconds>(
@@ -320,7 +320,7 @@ std::vector<InputParseResult<double>> get_double_arrays(rapidjson::Value& d,
 
 std::vector<InputParseResult<float>> get_float_arrays(rapidjson::Value& d,
                                                  const char* key_name) {
-  latency_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
+  std::shared_ptr<clipper::metrics::Histogram> latency_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
       "internal:json_parse_batch_latency", "microseconds", 100);
   long curtime_micros_start =
       std::chrono::duration_cast<std::chrono::microseconds>(
