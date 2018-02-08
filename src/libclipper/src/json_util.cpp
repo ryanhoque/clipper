@@ -11,9 +11,11 @@
 #include <unordered_map>
 
 #include <base64.h>
+#include <chrono>
 
 #include <clipper/datatypes.hpp>
 #include <clipper/json_util.hpp>
+#include <clipper/metrics.hpp>
 #include <clipper/redis.hpp>
 
 using clipper::PredictionData;
@@ -191,6 +193,12 @@ InputParseResult<double> get_double_array(rapidjson::Value& d,
 }
 
 InputParseResult<float> get_float_array(rapidjson::Value& d, const char* key_name) {
+  latency_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
+      "internal:json_parse_latency", "microseconds", 100);
+  long curtime_micros_start =
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::system_clock::now().time_since_epoch())
+          .count();
   rapidjson::Value& v =
       check_kv_type_and_return(d, key_name, rapidjson::kArrayType);
 
@@ -208,6 +216,11 @@ InputParseResult<float> get_float_array(rapidjson::Value& d, const char* key_nam
     arr_data[arr_idx] = elem.GetFloat();
     arr_idx++;
   }
+  long curtime_micros_end =
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::system_clock::now().time_since_epoch())
+          .count();
+  latency_hist_->insert(curtime_micros_end - curtime_micros_start);
 
   return std::make_pair(std::move(arr), arr_size);
 }
@@ -307,6 +320,12 @@ std::vector<InputParseResult<double>> get_double_arrays(rapidjson::Value& d,
 
 std::vector<InputParseResult<float>> get_float_arrays(rapidjson::Value& d,
                                                  const char* key_name) {
+  latency_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
+      "internal:json_parse_batch_latency", "microseconds", 100);
+  long curtime_micros_start =
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::system_clock::now().time_since_epoch())
+          .count();
   rapidjson::Value& v =
       check_kv_type_and_return(d, key_name, rapidjson::kArrayType);
   std::vector<InputParseResult<float>> float_arrays;
@@ -334,6 +353,11 @@ std::vector<InputParseResult<float>> get_float_arrays(rapidjson::Value& d,
     }
     float_arrays.push_back(std::make_pair(std::move(arr), arr_size));
   }
+  long curtime_micros_end =
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::system_clock::now().time_since_epoch())
+          .count();
+  latency_hist_->insert(curtime_micros_end - curtime_micros_start);
   return float_arrays;
 }
 
