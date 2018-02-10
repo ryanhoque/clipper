@@ -1,4 +1,6 @@
 from __future__ import print_function
+cur_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.abspath('%s/../clipper_admin' % cur_dir))
 from clipper_admin import ClipperConnection, DockerContainerManager
 from clipper_admin.deployers import python as python_deployer
 import json
