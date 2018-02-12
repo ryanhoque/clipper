@@ -1,4 +1,7 @@
 from __future__ import print_function
+import os, sys
+cur_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.abspath('%s/../../clipper_admin' % cur_dir))
 from clipper_admin import ClipperConnection, DockerContainerManager
 from clipper_admin.deployers import python as python_deployer
 import json
@@ -47,7 +50,7 @@ if __name__ == '__main__':
     python_deployer.deploy_python_closure(clipper_conn, name="simple-example", version=1, input_type="doubles",
                                     func=feature_sum)
     time.sleep(2)
-
+    clipper_conn.link_model_to_app(app_name="simple-example", model_name="simple-example")
     # For batch inputs set this number > 1
     batch_size = 1
 
