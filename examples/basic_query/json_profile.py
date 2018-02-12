@@ -1,4 +1,5 @@
 from __future__ import print_function
+import os, sys
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.abspath('%s/../clipper_admin' % cur_dir))
 from clipper_admin import ClipperConnection, DockerContainerManager
@@ -62,12 +63,14 @@ if __name__ == '__main__':
                 [list(np.random.random((256, 256))) for i in range(batch_size)],
                 batch=True)
         else:
-            predict(clipper_conn.get_query_addr(), np.random.random((32, 32))) # CIFAR request
-            predict(clipper_conn.get_query_addr(), np.random.random((256, 256))) # ImageNet request
+            predict(clipper_conn.get_query_addr(), np.random.random(32 * 32)) # CIFAR request
+            predict(clipper_conn.get_query_addr(), np.random.random(256 * 256)) # ImageNet request
         metrics = clipper_conn.inspect_instance()
+        print("METRICS ", metrics)
         fh = open('profile_output.json', 'w')
         fh.write(metrics)
         fh.close()
         clipper_conn.stop_all()
     except Exception as e:
+        print(e)
         clipper_conn.stop_all()
