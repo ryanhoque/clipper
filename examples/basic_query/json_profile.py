@@ -56,11 +56,11 @@ if __name__ == '__main__':
         if batch_size > 1:
             predict(
                 clipper_conn.get_query_addr(),
-                [list(np.random.random((32, 32))) for i in range(batch_size)],
+                [list(np.random.random(32 * 32)) for i in range(batch_size)],
                 batch=True)
             predict(
                 clipper_conn.get_query_addr(),
-                [list(np.random.random((256, 256))) for i in range(batch_size)],
+                [list(np.random.random(256 * 256)) for i in range(batch_size)],
                 batch=True)
         else:
             predict(clipper_conn.get_query_addr(), np.random.random(32 * 32)) # CIFAR request

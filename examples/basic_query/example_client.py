@@ -42,8 +42,10 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     clipper_conn = ClipperConnection(DockerContainerManager())
     clipper_conn.start_clipper()
-    python_deployer.create_endpoint(clipper_conn, "simple-example", "doubles",
-                                    feature_sum)
+    clipper_conn.register_application(name="simple-example", input_type="doubles", default_output="-1.0", slo_micros=100000)
+    time.sleep(2)
+    python_deployer.deploy_python_closure(clipper_conn, name="simple-example", version=1, input_type="doubles",
+                                    func=feature_sum)
     time.sleep(2)
 
     # For batch inputs set this number > 1
