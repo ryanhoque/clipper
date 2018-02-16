@@ -44,7 +44,8 @@ def signal_handler(signal, frame):
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     clipper_conn = ClipperConnection(DockerContainerManager())
-    clipper_conn.start_clipper()
+    # clipper_conn.start_clipper()
+    clipper_conn.connect()
     clipper_conn.register_application(name="simple-example", input_type="doubles", default_output="-1.0", slo_micros=100000)
     time.sleep(2)
     python_deployer.deploy_python_closure(clipper_conn, name="simple-example", version=1, input_type="doubles",

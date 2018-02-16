@@ -16,6 +16,7 @@
 #include <clipper/datatypes.hpp>
 #include <clipper/json_util.hpp>
 #include <clipper/metrics.hpp>
+#include <clipper/memory.hpp>
 #include <clipper/redis.hpp>
 
 using clipper::PredictionData;
@@ -166,8 +167,8 @@ InputParseResult<uint8_t> get_base64_encoded_byte_array(rapidjson::Value& d,
   size_t encoded_length = v.GetStringLength();
   size_t decoded_length = static_cast<size_t>(
       decoder.DecodedLength(encoded_string, encoded_length));
-  UniquePoolPtr<uint8_t> decoded_bytes(
-      static_cast<uint8_t*>(malloc(decoded_length * sizeof(uint8_t))), free);
+  UniquePoolPtr<uint8_t> decoded_bytes =
+      memory::allocate_unique<uint8_t>(decoded_length);
   decoder.Decode(encoded_string, encoded_length,
                  reinterpret_cast<char*>(decoded_bytes.get()), decoded_length);
 
@@ -181,8 +182,7 @@ InputParseResult<double> get_double_array(rapidjson::Value& d,
       check_kv_type_and_return(d, key_name, rapidjson::kArrayType);
 
   size_t arr_size = v.GetArray().Size();
-  UniquePoolPtr<double> arr(
-      static_cast<double*>(malloc(arr_size * sizeof(double))), free);
+  UniquePoolPtr<double> arr = memory::allocate_unique<double>(arr_size);
   double* arr_data = arr.get();
 
   size_t arr_idx = 0;
@@ -210,8 +210,7 @@ InputParseResult<float> get_float_array(rapidjson::Value& d, const char* key_nam
       check_kv_type_and_return(d, key_name, rapidjson::kArrayType);
 
   size_t arr_size = v.GetArray().Size();
-  UniquePoolPtr<float> arr(
-      static_cast<float*>(malloc(arr_size * sizeof(float))), free);
+  UniquePoolPtr<float> arr = memory::allocate_unique<float>(arr_size);
   float* arr_data = arr.get();
 
   size_t arr_idx = 0;
@@ -238,8 +237,7 @@ InputParseResult<int> get_int_array(rapidjson::Value& d, const char* key_name) {
       check_kv_type_and_return(d, key_name, rapidjson::kArrayType);
 
   size_t arr_size = v.GetArray().Size();
-  UniquePoolPtr<int> arr(static_cast<int*>(malloc(arr_size * sizeof(int))),
-                         free);
+  UniquePoolPtr<int> arr = memory::allocate_unique<int>(arr_size);
   int* arr_data = arr.get();
 
   size_t arr_idx = 0;
@@ -266,8 +264,7 @@ InputParseResult<char> get_char_array(rapidjson::Value& d,
                               " is not of type string");
   }
   size_t arr_size = v.GetStringLength();
-  UniquePoolPtr<char> arr(static_cast<char*>(malloc(arr_size * sizeof(char))),
-                          free);
+  UniquePoolPtr<char> arr = memory::allocate_unique<char>(arr_size);
   memcpy(arr.get(), v.GetString(), arr_size * sizeof(char));
   return std::make_pair(std::move(arr), arr_size);
 }
@@ -294,8 +291,8 @@ std::vector<InputParseResult<uint8_t>> get_base64_encoded_byte_arrays(
     size_t encoded_length = elem.GetStringLength();
     size_t decoded_length = static_cast<size_t>(
         decoder.DecodedLength(encoded_string, encoded_length));
-    UniquePoolPtr<uint8_t> decoded_bytes(
-        static_cast<uint8_t*>(malloc(decoded_length * sizeof(uint8_t))), free);
+    UniquePoolPtr<uint8_t> decoded_bytes =
+        memory::allocate_unique<uint8_t>(decoded_length);
     decoder.Decode(encoded_string, encoded_length,
                    reinterpret_cast<char*>(decoded_bytes.get()),
                    decoded_length);
@@ -319,8 +316,7 @@ std::vector<InputParseResult<double>> get_double_arrays(rapidjson::Value& d,
                                 " is not of type array");
     }
     size_t arr_size = elem_array.Size();
-    UniquePoolPtr<double> arr(
-        static_cast<double*>(malloc(arr_size * sizeof(double))), free);
+    UniquePoolPtr<double> arr = memory::allocate_unique<double>(arr_size);
     double* arr_data = arr.get();
 
     size_t arr_idx = 0;
@@ -358,8 +354,7 @@ std::vector<InputParseResult<float>> get_float_arrays(rapidjson::Value& d,
                                 " is not of type array");
     }
     size_t arr_size = elem_array.Size();
-    UniquePoolPtr<float> arr(
-        static_cast<float*>(malloc(arr_size * sizeof(float))), free);
+    UniquePoolPtr<float> arr = memory::allocate_unique<float>(arr_size);
     float* arr_data = arr.get();
 
     size_t arr_idx = 0;
@@ -396,8 +391,7 @@ std::vector<InputParseResult<int>> get_int_arrays(rapidjson::Value& d,
                                 " is not of type array");
     }
     size_t arr_size = elem_array.Size();
-    UniquePoolPtr<int> arr(static_cast<int*>(malloc(arr_size * sizeof(int))),
-                           free);
+    UniquePoolPtr<int> arr = memory::allocate_unique<int>(arr_size);
     int* arr_data = arr.get();
 
     size_t arr_idx = 0;
@@ -428,8 +422,7 @@ std::vector<InputParseResult<char>> get_char_arrays(rapidjson::Value& d,
                                 " is not of type string");
     }
     size_t arr_size = elem.GetStringLength();
-    UniquePoolPtr<char> arr(static_cast<char*>(malloc(arr_size * sizeof(char))),
-                            free);
+    UniquePoolPtr<char> arr = memory::allocate_unique<char>(arr_size);
     memcpy(arr.get(), elem.GetString(), arr_size * sizeof(char));
     vals.push_back(std::make_pair(std::move(arr), arr_size));
   }

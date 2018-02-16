@@ -4,8 +4,7 @@
 #include <chrono>
 #include <iostream>
 
-#include <redox.hpp>
-
+#include <concurrentqueue.h>
 #include <clipper/config.hpp>
 #include <clipper/datatypes.hpp>
 #include <clipper/logging.hpp>
@@ -15,13 +14,14 @@
 #include <clipper/task_executor.hpp>
 #include <clipper/threadpool.hpp>
 #include <clipper/util.hpp>
+#include <redox.hpp>
 
-using zmq::socket_t;
-using zmq::message_t;
-using zmq::context_t;
 using std::shared_ptr;
 using std::string;
 using std::vector;
+using zmq::context_t;
+using zmq::message_t;
+using zmq::socket_t;
 
 namespace clipper {
 
@@ -41,7 +41,8 @@ void RPCDataStore::remove_data(void *data) {
 }
 
 RPCService::RPCService()
-    : request_queue_(std::make_shared<Queue<RPCRequest>>()),
+    : request_queue_(std::make_shared<moodycamel::ConcurrentQueue<RPCRequest>>(
+          sizeof(RPCRequest) * 10000)),
       active_(false),
       // The version of the unordered_map constructor that allows
       // you to specify your own hash function also requires you
@@ -94,15 +95,16 @@ int RPCService::send_message(vector<ByteBuffer> msg,
           .count();
   RPCRequest request(zmq_connection_id, id, std::move(msg),
                      current_time_micros);
-  request_queue_->push(std::move(request));
+
+  request_queue_->enqueue(request);
   return id;
 }
 
 void RPCService::manage_service(const string address) {
   // Map from container id to unique routing id for zeromq
   // Note that zeromq socket id is a byte vector
-  log_info_formatted(LOGGING_TAG_RPC,
-                     "RPC thread started at address: ", address);
+  log_info_formatted(LOGGING_TAG_RPC, "RPC thread started at address: ",
+                     address);
   boost::bimap<int, vector<uint8_t>> connections;
   // Initializes a map to associate the ZMQ connection IDs
   // of connected containers with their metadata, including
@@ -131,7 +133,7 @@ void RPCService::manage_service(const string address) {
     // send. If there are messages to send, don't let the poll block at all.
     // If there no messages to send, let the poll block for 1 ms.
     int poll_timeout = 0;
-    if (request_queue_->size() == 0) {
+    if (request_queue_->size_approx() == 0) {
       poll_timeout = 1;
     }
     zmq_poll(items, 1, poll_timeout);
@@ -160,12 +162,16 @@ void RPCService::shutdown_service(socket_t &socket) {
 
 void RPCService::send_messages(
     socket_t &socket, boost::bimap<int, vector<uint8_t>> &connections) {
-  while (request_queue_->size() > 0) {
+  int queue_size = request_queue_->size_approx();
+  std::vector<RPCRequest> requests(queue_size);
+  size_t num_requests =
+      request_queue_->try_dequeue_bulk(requests.begin(), queue_size);
+  for (size_t i = 0; i < num_requests; i++) {
+    RPCRequest &request = requests[i];
     long current_time_micros =
         std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::system_clock::now().time_since_epoch())
             .count();
-    RPCRequest request = request_queue_->pop();
     msg_queueing_hist_->insert(current_time_micros - std::get<3>(request));
     boost::bimap<int, vector<uint8_t>>::left_const_iterator connection =
         connections.left.find(std::get<0>(request));
@@ -177,15 +183,18 @@ void RPCService::send_messages(
       continue;
     }
 
-    message_t type_message(sizeof(int));
-    static_cast<int *>(type_message.data())[0] =
-        static_cast<int>(MessageType::ContainerContent);
-    message_t id_message(sizeof(int));
-    static_cast<int *>(id_message.data())[0] = std::get<1>(request);
+    message_t version_message(sizeof(uint32_t));
+    static_cast<uint32_t *>(version_message.data())[0] = RPC_VERSION;
+    message_t type_message(sizeof(uint32_t));
+    static_cast<uint32_t *>(type_message.data())[0] =
+        static_cast<uint32_t>(MessageType::ContainerContent);
+    message_t id_message(sizeof(uint32_t));
+    static_cast<uint32_t *>(id_message.data())[0] = std::get<1>(request);
     vector<uint8_t> routing_identity = connection->second;
 
     socket.send(routing_identity.data(), routing_identity.size(), ZMQ_SNDMORE);
     socket.send("", 0, ZMQ_SNDMORE);
+    socket.send(version_message, ZMQ_SNDMORE);
     socket.send(type_message, ZMQ_SNDMORE);
     socket.send(id_message, ZMQ_SNDMORE);
     size_t cur_msg_num = 0;
@@ -345,15 +354,18 @@ void RPCService::receive_message(
 void RPCService::send_heartbeat_response(socket_t &socket,
                                          const vector<uint8_t> &connection_id,
                                          bool request_container_metadata) {
-  message_t type_message(sizeof(int));
-  message_t heartbeat_type_message(sizeof(int));
-  static_cast<int *>(type_message.data())[0] =
-      static_cast<int>(MessageType::Heartbeat);
-  static_cast<int *>(heartbeat_type_message.data())[0] = static_cast<int>(
+  message_t version_message(sizeof(uint32_t));
+  static_cast<uint32_t *>(version_message.data())[0] = RPC_VERSION;
+  message_t type_message(sizeof(uint32_t));
+  message_t heartbeat_type_message(sizeof(uint32_t));
+  static_cast<uint32_t *>(type_message.data())[0] =
+      static_cast<uint32_t>(MessageType::Heartbeat);
+  static_cast<uint32_t *>(heartbeat_type_message.data())[0] = static_cast<int>(
       request_container_metadata ? HeartbeatType::RequestContainerMetadata
                                  : HeartbeatType::KeepAlive);
   socket.send(connection_id.data(), connection_id.size(), ZMQ_SNDMORE);
   socket.send("", 0, ZMQ_SNDMORE);
+  socket.send(version_message, ZMQ_SNDMORE);
   socket.send(type_message, ZMQ_SNDMORE);
   socket.send(heartbeat_type_message);
 }

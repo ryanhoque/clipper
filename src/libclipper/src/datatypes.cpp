@@ -9,6 +9,7 @@
 #include <clipper/constants.hpp>
 #include <clipper/datatypes.hpp>
 #include <clipper/logging.hpp>
+#include <clipper/memory.hpp>
 #include <clipper/util.hpp>
 
 namespace clipper {
@@ -95,9 +96,8 @@ bool Output::operator!=(const Output &rhs) const {
 
 std::unique_ptr<SerializableString> to_serializable_string(
     const std::string &str) {
-  size_t byte_size = str.size() * sizeof(char);
-  UniquePoolPtr<char> data(static_cast<char *>(malloc(byte_size)), free);
-  memcpy(data.get(), str.data(), byte_size);
+  UniquePoolPtr<char> data = memory::allocate_unique<char>(str.size());
+  memcpy(data.get(), str.data(), str.size() * sizeof(char));
   return std::make_unique<SerializableString>(std::move(data), str.size());
 }
 
@@ -138,7 +138,7 @@ void rpc::PredictionRequest::add_input(
     const std::shared_ptr<PredictionData> &input) {
   validate_input_type(input->type());
   input_data_size_ += input->byte_size();
-  SharedPoolPtr<void> input_data = get_data(input);
+  SharedPoolPtr<void> input_data = get_data<void>(input);
   input_data_items_.push_back(std::make_tuple(
       std::move(input_data), input->start_byte(), input->byte_size()));
 }
@@ -148,7 +148,7 @@ void rpc::PredictionRequest::add_input(std::unique_ptr<PredictionData> input) {
   size_t start_byte = input->start_byte();
   size_t byte_size = input->byte_size();
   input_data_size_ += byte_size;
-  UniquePoolPtr<void> input_data = get_data(std::move(input));
+  UniquePoolPtr<void> input_data = get_data<void>(std::move(input));
   input_data_items_.push_back(
       std::make_tuple(std::move(input_data), start_byte, byte_size));
 }

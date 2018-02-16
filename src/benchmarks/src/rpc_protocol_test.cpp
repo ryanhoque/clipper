@@ -12,6 +12,7 @@
 #include <clipper/datatypes.hpp>
 #include <clipper/json_util.hpp>
 #include <clipper/logging.hpp>
+#include <clipper/memory.hpp>
 #include <clipper/redis.hpp>
 #include <clipper/rpc_service.hpp>
 
@@ -114,8 +115,7 @@ class Tester {
                 log_start_time.time_since_epoch())
                 .count()) /
         1000;
-    UniquePoolPtr<double> data(static_cast<double *>(malloc(sizeof(double))),
-                               free);
+    UniquePoolPtr<double> data = memory::allocate_unique<double>(1);
     data.get()[0] = log_start_time_millis;
     std::unique_ptr<PredictionData> input =
         std::make_unique<DoubleVector>(std::move(data), 1);
@@ -198,11 +198,12 @@ class Tester {
       rpc::PredictionResponse prediction_response =
           rpc::PredictionResponse::deserialize_prediction_response(
               std::move(response.second));
-      auto event_history_data = prediction_response.outputs_[0];
-      char *event_history_ptr =
-          static_cast<char *>(get_data(event_history_data).get());
+      auto event_history = prediction_response.outputs_[0];
+      SharedPoolPtr<char> event_history_data = get_data<char>(event_history);
       std::string event_history_str(
-          event_history_ptr, event_history_ptr + event_history_data->size());
+          event_history_data.get() + event_history->start(),
+          event_history_data.get() + event_history->start() +
+              event_history->size());
       rapidjson::Document d;
       json::parse_json(event_history_str, d);
       auto events = d.GetArray();
