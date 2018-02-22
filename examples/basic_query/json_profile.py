@@ -14,7 +14,7 @@ import sys
 
 
 def predict(addr, x, batch=False):
-    url = "http://%s/simple-example/predict" % addr
+    url = "http://%s/json/predict" % addr
 
     if batch:
         req_json = json.dumps({'input_batch': x})
@@ -44,31 +44,29 @@ def signal_handler(signal, frame):
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     clipper_conn = ClipperConnection(DockerContainerManager())
-    clipper_conn.start_clipper()
-    python_deployer.create_endpoint(clipper_conn, "simple-example", "doubles",
-                                    feature_sum)
+    batch_size = int(sys.argv[2])
+    image_size = int(sys.argv[1])
+    #clipper_conn.start_clipper()
+    clipper_conn.connect()
+    # run below if first time
+    #clipper_conn.register_application(name="json", input_type="floats", default_output="-1.0", slo_micros=100000)
     time.sleep(2)
-
-    # For batch inputs set this number > 1
-    batch_size = 1
 
     try:
         if batch_size > 1:
-            predict(
-                clipper_conn.get_query_addr(),
-                [list(np.random.random(32 * 32)) for i in range(batch_size)],
-                batch=True)
-            predict(
-                clipper_conn.get_query_addr(),
-                [list(np.random.random(256 * 256)) for i in range(batch_size)],
-                batch=True)
+            for _ in range(500):
+                predict(
+                    clipper_conn.get_query_addr(),
+                    [list(np.random.random(image_size * image_size)) for i in range(batch_size)],
+                    batch=True)
         else:
-            predict(clipper_conn.get_query_addr(), np.random.random(32 * 32)) # CIFAR request
-            predict(clipper_conn.get_query_addr(), np.random.random(256 * 256)) # ImageNet request
+            for _ in range(500):
+                predict(clipper_conn.get_query_addr(), np.random.random(image_size * image_size))
         metrics = clipper_conn.inspect_instance()
         print("METRICS ", metrics)
-        fh = open('profile_output.json', 'w')
-        fh.write(metrics)
+        fh = open('profile_output.json', 'a')
+        fh.write("image size: " + str(image_size) + " and batch size: " + str(batch_size) + '\n')
+        fh.write(str(metrics) + '\n')
         fh.close()
         clipper_conn.stop_all()
     except Exception as e:

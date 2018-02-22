@@ -28,6 +28,13 @@ using rapidjson::Type;
 namespace clipper {
 namespace json {
 
+
+std::shared_ptr<clipper::metrics::Histogram> latency_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
+    "internal:json_parse_latency", "microseconds", 500);
+
+std::shared_ptr<clipper::metrics::Histogram> batch_latency_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
+    "internal:json_parse_batch_latency", "microseconds", 500);
+
 json_parse_error::json_parse_error(const std::string& what)
     : std::runtime_error(what) {}
 json_parse_error::~json_parse_error() throw() {}
@@ -200,8 +207,6 @@ InputParseResult<double> get_double_array(rapidjson::Value& d,
 }
 
 InputParseResult<float> get_float_array(rapidjson::Value& d, const char* key_name) {
-  std::shared_ptr<clipper::metrics::Histogram> latency_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
-      "internal:json_parse_latency", "microseconds", 100);
   long curtime_micros_start =
       std::chrono::duration_cast<std::chrono::microseconds>(
           std::chrono::system_clock::now().time_since_epoch())
@@ -336,8 +341,6 @@ std::vector<InputParseResult<double>> get_double_arrays(rapidjson::Value& d,
 
 std::vector<InputParseResult<float>> get_float_arrays(rapidjson::Value& d,
                                                  const char* key_name) {
-  std::shared_ptr<clipper::metrics::Histogram> latency_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
-      "internal:json_parse_batch_latency", "microseconds", 100);
   long curtime_micros_start =
       std::chrono::duration_cast<std::chrono::microseconds>(
           std::chrono::system_clock::now().time_since_epoch())
@@ -373,7 +376,7 @@ std::vector<InputParseResult<float>> get_float_arrays(rapidjson::Value& d,
       std::chrono::duration_cast<std::chrono::microseconds>(
           std::chrono::system_clock::now().time_since_epoch())
           .count();
-  latency_hist_->insert(curtime_micros_end - curtime_micros_start);
+  batch_latency_hist_->insert(curtime_micros_end - curtime_micros_start);
   return float_arrays;
 }
 
