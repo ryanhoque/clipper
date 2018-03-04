@@ -35,6 +35,12 @@ std::shared_ptr<clipper::metrics::Histogram> latency_hist_ = metrics::MetricsReg
 std::shared_ptr<clipper::metrics::Histogram> batch_latency_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
     "internal:json_parse_batch_latency", "microseconds", 500);
 
+std::shared_ptr<clipper::metrics::Histogram> malloc_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
+    "internal:json_malloc_latency", "microseconds", 500);
+
+std::shared_ptr<clipper::metrics::Histogram> batch_malloc_hist_ = metrics::MetricsRegistry::get_metrics().create_histogram(
+    "internal:json_malloc_batch_latency", "microseconds", 500);
+
 json_parse_error::json_parse_error(const std::string& what)
     : std::runtime_error(what) {}
 json_parse_error::~json_parse_error() throw() {}
@@ -215,7 +221,17 @@ InputParseResult<float> get_float_array(rapidjson::Value& d, const char* key_nam
       check_kv_type_and_return(d, key_name, rapidjson::kArrayType);
 
   size_t arr_size = v.GetArray().Size();
+
+  long curtime_micros_start2 =
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::system_clock::now().time_since_epoch())
+          .count();
   UniquePoolPtr<float> arr = memory::allocate_unique<float>(arr_size);
+  long curtime_micros_end2 =
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::system_clock::now().time_since_epoch())
+          .count();
+  malloc_hist_->insert(curtime_micros_end2 - curtime_micros_start2);
   float* arr_data = arr.get();
 
   size_t arr_idx = 0;
