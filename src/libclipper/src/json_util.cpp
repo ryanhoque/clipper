@@ -366,6 +366,7 @@ std::vector<InputParseResult<float>> get_float_arrays(rapidjson::Value& d,
   std::vector<InputParseResult<float>> float_arrays;
 
   float_arrays.reserve(v.Capacity());
+  long total_malloc = 0;
   for (rapidjson::Value& elem_array : v.GetArray()) {
     if (!elem_array.IsArray()) {
       throw json_semantic_error("Array input of type " +
@@ -373,7 +374,17 @@ std::vector<InputParseResult<float>> get_float_arrays(rapidjson::Value& d,
                                 " is not of type array");
     }
     size_t arr_size = elem_array.Size();
+    long curtime_micros_start2 =
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::system_clock::now().time_since_epoch())
+            .count();
+
     UniquePoolPtr<float> arr = memory::allocate_unique<float>(arr_size);
+    long curtime_micros_end2 =
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::system_clock::now().time_since_epoch())
+            .count();
+    total_malloc += (curtime_micros_end2 - curtime_micros_start2);
     float* arr_data = arr.get();
 
     size_t arr_idx = 0;
@@ -388,6 +399,7 @@ std::vector<InputParseResult<float>> get_float_arrays(rapidjson::Value& d,
     }
     float_arrays.push_back(std::make_pair(std::move(arr), arr_size));
   }
+  batch_malloc_hist_->insert(total_malloc);
   long curtime_micros_end =
       std::chrono::duration_cast<std::chrono::microseconds>(
           std::chrono::system_clock::now().time_since_epoch())

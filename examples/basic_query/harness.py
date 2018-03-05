@@ -1,6 +1,6 @@
 import os
 
-batches = [4, 8, 16, 32]
+batches = [1, 4, 8, 16, 32]
 sizes = [512]
 
 for size in sizes:
